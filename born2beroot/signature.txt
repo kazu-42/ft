@@ -1,0 +1,31 @@
+# =============================================================================
+# signature.txt - Born2beRoot Virtual Machine Signature
+# =============================================================================
+#
+# This file must contain the SHA1 hash of your virtual machine's .vdi disk file.
+#
+# How to generate:
+#   1. Locate your VM's virtual disk file (.vdi for VirtualBox)
+#      - Default path on macOS: ~/VirtualBox VMs/<VM_NAME>/<VM_NAME>.vdi
+#      - Default path on Linux: ~/VirtualBox VMs/<VM_NAME>/<VM_NAME>.vdi
+#
+#   2. Generate the SHA1 hash:
+#      sha1sum /path/to/your/vm.vdi
+#        or (on macOS):
+#      shasum /path/to/your/vm.vdi
+#
+#   3. Copy ONLY the hash value (not the filename) into this file.
+#
+# Example format (replace with your actual hash):
+# e8f41a0d326a217ef73c1e45cf3e4c246a5c3e7f
+#
+# IMPORTANT NOTES:
+#   - The signature MUST match the .vdi file at the time of evaluation.
+#   - Do NOT modify the VM after generating this signature.
+#   - Do NOT start the VM after generating the signature (this changes the .vdi).
+#   - Submit this file in the root of your Git repository.
+#   - The evaluator will compare this hash against your VM's disk file.
+#
+# =============================================================================
+# Paste your SHA1 hash below this line:
+
