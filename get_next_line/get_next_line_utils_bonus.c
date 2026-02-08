@@ -12,6 +12,11 @@
 
 #include "get_next_line_bonus.h"
 
+/**
+ * @brief Return the length of a string, 0 if NULL.
+ * @param s The string to measure.
+ * @return The length in bytes.
+ */
 size_t	ft_strlen(const char *s)
 {
 	size_t	i;
@@ -24,6 +29,12 @@ size_t	ft_strlen(const char *s)
 	return (i);
 }
 
+/**
+ * @brief Locate the first occurrence of c in s.
+ * @param s The string to search.
+ * @param c The character to find.
+ * @return Pointer to the match, or NULL if not found.
+ */
 char	*ft_strchr(const char *s, int c)
 {
 	if (!s)
@@ -39,7 +50,13 @@ char	*ft_strchr(const char *s, int c)
 	return (NULL);
 }
 
-char	*ft_strjoin(char *s1, char *s2)
+/**
+ * @brief Join s1 and s2 into a new string; frees s1.
+ * @param s1 The first string (freed after join).
+ * @param s2 The second string.
+ * @return The joined string, or NULL on error.
+ */
+char	*strjoin(char *s1, char *s2)
 {
 	size_t	i;
 	size_t	j;
@@ -61,16 +78,18 @@ char	*ft_strjoin(char *s1, char *s2)
 	}
 	j = 0;
 	while (s2[j])
-	{
-		joined[i + j] = s2[j];
-		j++;
-	}
-	joined[i + j] = '\0';
+		joined[i++] = s2[j++];
+	joined[i] = '\0';
 	free(s1);
 	return (joined);
 }
 
-char	*ft_get_line(char *stash)
+/**
+ * @brief Extract the first line from stash (up to newline).
+ * @param stash The accumulated read buffer.
+ * @return A new string containing the line, or NULL.
+ */
+char	*get_line(char *stash)
 {
 	size_t	i;
 	char	*line;
@@ -97,15 +116,18 @@ char	*ft_get_line(char *stash)
 	return (line);
 }
 
-char	*ft_trim_stash(char *stash)
+/**
+ * @brief Remove the first line from stash, return the rest.
+ * @param stash The accumulated read buffer (freed).
+ * @return Remaining content after the first line, or NULL.
+ */
+char	*trim_stash(char *stash)
 {
 	size_t	i;
 	size_t	j;
 	char	*trimmed;
 
 	i = 0;
-	if (!stash)
-		return (NULL);
 	while (stash[i] && stash[i] != '\n')
 		i++;
 	if (!stash[i])

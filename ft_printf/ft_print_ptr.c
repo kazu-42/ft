@@ -12,7 +12,12 @@
 
 #include "ft_printf.h"
 
-static int	ft_ptr_len(unsigned long long ptr)
+/**
+ * @brief Count the number of hex digits in a pointer value.
+ * @param ptr The pointer value.
+ * @return Number of hexadecimal digits.
+ */
+static int	ptr_len(unsigned long long ptr)
 {
 	int	len;
 
@@ -27,30 +32,32 @@ static int	ft_ptr_len(unsigned long long ptr)
 	return (len);
 }
 
-static int	ft_put_ptr(unsigned long long ptr)
+/**
+ * @brief Recursively print a pointer value in lowercase hex.
+ * @param ptr The pointer value to print.
+ * @return 0 on success, -1 on write error.
+ */
+static int	put_ptr(unsigned long long ptr)
 {
 	char	*hex;
-	int		ret;
 
 	hex = "0123456789abcdef";
 	if (ptr >= 16)
 	{
-		ret = ft_put_ptr(ptr / 16);
-		if (ret == -1)
-			return (-1);
-		ret = ft_put_ptr(ptr % 16);
-		if (ret == -1)
+		if (put_ptr(ptr / 16) == -1)
 			return (-1);
 	}
-	else
-	{
-		if (write(1, &hex[ptr], 1) == -1)
-			return (-1);
-	}
+	if (write(1, &hex[ptr % 16], 1) == -1)
+		return (-1);
 	return (0);
 }
 
-int	ft_print_ptr(unsigned long long ptr)
+/**
+ * @brief Print a pointer with "0x" prefix, or "(nil)" if 0.
+ * @param ptr The pointer value to print.
+ * @return Total characters printed, or -1 on error.
+ */
+int	print_ptr(unsigned long long ptr)
 {
 	int	count;
 
@@ -63,8 +70,8 @@ int	ft_print_ptr(unsigned long long ptr)
 	if (write(1, "0x", 2) == -1)
 		return (-1);
 	count = 2;
-	if (ft_put_ptr(ptr) == -1)
+	if (put_ptr(ptr) == -1)
 		return (-1);
-	count += ft_ptr_len(ptr);
+	count += ptr_len(ptr);
 	return (count);
 }

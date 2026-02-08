@@ -12,7 +12,12 @@
 
 #include "ft_printf.h"
 
-static int	ft_unumlen(unsigned int n)
+/**
+ * @brief Count the decimal digits of an unsigned integer.
+ * @param n The unsigned integer to measure.
+ * @return The number of digits.
+ */
+static int	unumlen(unsigned int n)
 {
 	int	len;
 
@@ -27,13 +32,18 @@ static int	ft_unumlen(unsigned int n)
 	return (len);
 }
 
-static int	ft_put_unsigned(unsigned int n)
+/**
+ * @brief Recursively write an unsigned integer to stdout.
+ * @param n The unsigned integer to print.
+ * @return 0 on success, -1 on write error.
+ */
+static int	put_unsigned(unsigned int n)
 {
 	char	c;
 
 	if (n >= 10)
 	{
-		if (ft_put_unsigned(n / 10) == -1)
+		if (put_unsigned(n / 10) == -1)
 			return (-1);
 	}
 	c = (n % 10) + '0';
@@ -42,9 +52,14 @@ static int	ft_put_unsigned(unsigned int n)
 	return (0);
 }
 
-int	ft_print_unsigned(unsigned int n)
+/**
+ * @brief Print an unsigned integer and return char count.
+ * @param n The unsigned integer to print.
+ * @return Number of characters printed, or -1 on error.
+ */
+int	print_unsigned(unsigned int n)
 {
-	if (ft_put_unsigned(n) == -1)
+	if (put_unsigned(n) == -1)
 		return (-1);
-	return (ft_unumlen(n));
+	return (unumlen(n));
 }

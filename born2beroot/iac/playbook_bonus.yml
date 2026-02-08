@@ -1,0 +1,245 @@
+---
+# Born2beRoot - Bonus Requirements Playbook
+#
+# Installs and configures:
+#   - WordPress (lighttpd + MariaDB + PHP)
+#   - Fail2ban (SSH brute-force protection)
+#
+# Usage:
+#   ansible-playbook -i inventory.ini playbook_bonus.yml --ask-become-pass
+#
+# Run the mandatory playbook first.
+
+- name: Born2beRoot Bonus Configuration
+  hosts: born2beroot
+  become: true
+  vars_files:
+    - group_vars/all.yml
+
+  tasks:
+    # =============================================
+    # 1. lighttpd
+    # =============================================
+    - name: Install lighttpd
+      ansible.builtin.apt:
+        name: lighttpd
+        state: present
+        update_cache: true
+      tags: [wordpress]
+
+    - name: Enable lighttpd
+      ansible.builtin.systemd:
+        name: lighttpd
+        enabled: true
+        state: started
+      tags: [wordpress]
+
+    # =============================================
+    # 2. MariaDB
+    # =============================================
+    - name: Install MariaDB
+      ansible.builtin.apt:
+        name:
+          - mariadb-server
+          - mariadb-client
+        state: present
+      tags: [wordpress]
+
+    - name: Enable MariaDB
+      ansible.builtin.systemd:
+        name: mariadb
+        enabled: true
+        state: started
+      tags: [wordpress]
+
+    - name: Create WordPress database
+      ansible.builtin.command: >-
+        mariadb -e
+        "CREATE DATABASE IF NOT EXISTS {{ b2br_wp_db_name }}
+        CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
+      changed_when: false
+      tags: [wordpress]
+
+    - name: Create WordPress DB user
+      ansible.builtin.command: >-
+        mariadb -e
+        "GRANT ALL PRIVILEGES ON {{ b2br_wp_db_name }}.*
+        TO '{{ b2br_wp_db_user }}'@'localhost'
+        IDENTIFIED BY '{{ b2br_wp_db_password }}';
+        FLUSH PRIVILEGES;"
+      changed_when: false
+      tags: [wordpress]
+
+    # =============================================
+    # 3. PHP
+    # =============================================
+    - name: Install PHP and extensions
+      ansible.builtin.apt:
+        name:
+          - php-cgi
+          - php-mysql
+          - php-curl
+          - php-gd
+          - php-mbstring
+          - php-xml
+          - php-zip
+          - php-intl
+        state: present
+      tags: [wordpress]
+
+    - name: Enable lighttpd fastcgi modules
+      ansible.builtin.command: lighty-enable-mod fastcgi fastcgi-php
+      changed_when: false
+      notify: Restart lighttpd
+      tags: [wordpress]
+
+    # =============================================
+    # 4. WordPress
+    # =============================================
+    - name: Check if WordPress is already installed
+      ansible.builtin.stat:
+        path: /var/www/html/wordpress/wp-config-sample.php
+      register: wp_installed
+      tags: [wordpress]
+
+    - name: Download WordPress
+      ansible.builtin.get_url:
+        url: https://wordpress.org/latest.tar.gz
+        dest: /tmp/wordpress.tar.gz
+        mode: "0644"
+      when: not wp_installed.stat.exists
+      tags: [wordpress]
+
+    - name: Extract WordPress
+      ansible.builtin.unarchive:
+        src: /tmp/wordpress.tar.gz
+        dest: /var/www/html/
+        remote_src: true
+      when: not wp_installed.stat.exists
+      tags: [wordpress]
+
+    - name: Deploy wp-config.php
+      ansible.builtin.template:
+        src: templates/wp-config.php.j2
+        dest: /var/www/html/wordpress/wp-config.php
+        mode: "0640"
+        owner: www-data
+        group: www-data
+      tags: [wordpress]
+
+    - name: Set WordPress directory ownership
+      ansible.builtin.file:
+        path: /var/www/html/wordpress
+        owner: www-data
+        group: www-data
+        recurse: true
+      tags: [wordpress]
+
+    - name: UFW - allow port 80
+      ansible.builtin.command: ufw allow 80
+      changed_when: false
+      tags: [wordpress]
+
+    # =============================================
+    # 5. Fail2ban
+    # =============================================
+    - name: Install fail2ban
+      ansible.builtin.apt:
+        name: fail2ban
+        state: present
+      tags: [fail2ban]
+
+    - name: Deploy fail2ban jail config
+      ansible.builtin.copy:
+        content: |
+          [sshd]
+          enabled = true
+          port = {{ b2br_ssh_port }}
+          filter = sshd
+          logpath = /var/log/auth.log
+          maxretry = 3
+          bantime = 600
+          findtime = 600
+        dest: /etc/fail2ban/jail.local
+        mode: "0644"
+      notify: Restart fail2ban
+      tags: [fail2ban]
+
+    - name: Enable fail2ban
+      ansible.builtin.systemd:
+        name: fail2ban
+        enabled: true
+        state: started
+      tags: [fail2ban]
+
+    # =============================================
+    # VERIFY: Run with --tags verify
+    # =============================================
+    - name: "VERIFY: lighttpd"
+      ansible.builtin.command: systemctl is-active lighttpd
+      register: v_lighttpd
+      changed_when: false
+      failed_when: false
+      tags: [verify, never]
+
+    - name: "VERIFY: lighttpd result"
+      ansible.builtin.debug:
+        msg: "lighttpd={{ v_lighttpd.stdout }} {{ (v_lighttpd.stdout == 'active') | ternary('OK','FAIL') }}"
+      tags: [verify, never]
+
+    - name: "VERIFY: MariaDB"
+      ansible.builtin.command: systemctl is-active mariadb
+      register: v_mariadb
+      changed_when: false
+      failed_when: false
+      tags: [verify, never]
+
+    - name: "VERIFY: MariaDB result"
+      ansible.builtin.debug:
+        msg: "mariadb={{ v_mariadb.stdout }} {{ (v_mariadb.stdout == 'active') | ternary('OK','FAIL') }}"
+      tags: [verify, never]
+
+    - name: "VERIFY: WordPress files"
+      ansible.builtin.stat:
+        path: /var/www/html/wordpress/wp-config.php
+      register: v_wp
+      tags: [verify, never]
+
+    - name: "VERIFY: WordPress result"
+      ansible.builtin.debug:
+        msg: "wp-config.php exists={{ v_wp.stat.exists }} {{ v_wp.stat.exists | ternary('OK','FAIL') }}"
+      tags: [verify, never]
+
+    - name: "VERIFY: fail2ban"
+      ansible.builtin.command: systemctl is-active fail2ban
+      register: v_f2b
+      changed_when: false
+      failed_when: false
+      tags: [verify, never]
+
+    - name: "VERIFY: fail2ban result"
+      ansible.builtin.debug:
+        msg: "fail2ban={{ v_f2b.stdout }} {{ (v_f2b.stdout == 'active') | ternary('OK','FAIL') }}"
+      tags: [verify, never]
+
+    - name: "VERIFY: UFW port 80"
+      ansible.builtin.command: ufw status
+      register: v_ufw_bonus
+      changed_when: false
+      tags: [verify, never]
+
+    - name: "VERIFY: UFW port 80 result"
+      ansible.builtin.debug:
+        msg: "port 80 {{ ('80' in v_ufw_bonus.stdout) | ternary('OK','FAIL') }}"
+      tags: [verify, never]
+
+  handlers:
+    - name: Restart lighttpd
+      ansible.builtin.systemd:
+        name: lighttpd
+        state: restarted
+
+    - name: Restart fail2ban
+      ansible.builtin.systemd:
+        name: fail2ban
+        state: restarted

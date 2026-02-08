@@ -1,0 +1,23 @@
+---
+# Born2beRoot - Configuration Variables
+# Edit these values to match your 42 login.
+
+# --- Identity ---
+b2br_username: "kaztakam"
+b2br_hostname: "kaztakam42"
+
+# --- SSH ---
+b2br_ssh_port: 4242
+
+# --- Password Policy (login.defs) ---
+b2br_pass_max_days: 30
+b2br_pass_min_days: 2
+b2br_pass_warn_age: 7
+
+# --- sudo ---
+b2br_sudo_badpass_message: "Wrong password. Access denied."
+
+# --- Bonus: WordPress ---
+b2br_wp_db_name: "wordpress"
+b2br_wp_db_user: "wpuser"
+b2br_wp_db_password: "Wp4242Secure!"

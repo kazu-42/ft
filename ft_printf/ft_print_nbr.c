@@ -12,7 +12,12 @@
 
 #include "ft_printf.h"
 
-static int	ft_numlen(int n)
+/**
+ * @brief Count the number of decimal digits including sign.
+ * @param n The integer whose printed length to compute.
+ * @return The number of characters needed to print n.
+ */
+static int	numlen(int n)
 {
 	int	len;
 
@@ -27,7 +32,12 @@ static int	ft_numlen(int n)
 	return (len);
 }
 
-static int	ft_put_nbr(int n)
+/**
+ * @brief Recursively write a signed integer to stdout.
+ * @param n The integer to print.
+ * @return 0 on success, -1 on write error.
+ */
+static int	put_nbr(int n)
 {
 	char	c;
 
@@ -45,7 +55,7 @@ static int	ft_put_nbr(int n)
 	}
 	if (n >= 10)
 	{
-		if (ft_put_nbr(n / 10) == -1)
+		if (put_nbr(n / 10) == -1)
 			return (-1);
 	}
 	c = (n % 10) + '0';
@@ -54,9 +64,14 @@ static int	ft_put_nbr(int n)
 	return (0);
 }
 
-int	ft_print_nbr(int n)
+/**
+ * @brief Print a signed integer and return the char count.
+ * @param n The integer to print.
+ * @return Number of characters printed, or -1 on error.
+ */
+int	print_nbr(int n)
 {
-	if (ft_put_nbr(n) == -1)
+	if (put_nbr(n) == -1)
 		return (-1);
-	return (ft_numlen(n));
+	return (numlen(n));
 }

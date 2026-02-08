@@ -1,0 +1,27 @@
+# -*- mode: ruby -*-
+# Born2beRoot - Vagrantfile
+#
+# Creates a Debian 12 VM for testing the Ansible playbook.
+# Note: LUKS encryption and LVM partitioning must be configured
+# during the OS installation (not automatable via Vagrant).
+# This Vagrantfile is for testing post-install configuration only.
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "debian/bookworm64"
+  config.vm.hostname = "kaztakam42"
+
+  # SSH port forwarding (guest 4242 -> host 4242)
+  config.vm.network "forwarded_port", guest: 4242, host: 4242
+  # HTTP for bonus WordPress (guest 80 -> host 8080)
+  config.vm.network "forwarded_port", guest: 80, host: 8080
+
+  config.vm.provider "virtualbox" do |vb|
+    vb.name = "Born2beRoot"
+    vb.memory = 1024
+    vb.cpus = 1
+  end
+
+  config.vm.provision "ansible" do |ansible|
+    ansible.playbook = "playbook.yml"
+  end
+end

@@ -1,0 +1,382 @@
+---
+# Born2beRoot - Mandatory Requirements Playbook
+#
+# Configures a fresh Debian 12 system to meet all Born2beRoot
+# mandatory requirements: hostname, users, SSH, UFW, password
+# policy, sudo, AppArmor, and monitoring.sh.
+#
+# Usage:
+#   ansible-playbook -i inventory.ini playbook.yml --ask-become-pass
+#
+# Prerequisites:
+#   - Debian 12 (bookworm) with LUKS + LVM (done at install time)
+#   - SSH access to the target machine
+#   - Python 3 on the target (default in Debian 12)
+
+- name: Born2beRoot Mandatory Configuration
+  hosts: born2beroot
+  become: true
+  vars_files:
+    - group_vars/all.yml
+
+  tasks:
+    # =============================================
+    # 1. System update
+    # =============================================
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+      tags: [system]
+
+    # =============================================
+    # 2. Hostname
+    # =============================================
+    - name: Set hostname
+      ansible.builtin.hostname:
+        name: "{{ b2br_hostname }}"
+      tags: [hostname]
+
+    - name: Set hostname in /etc/hosts
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        regexp: '^127\.0\.1\.1'
+        line: "127.0.1.1\t{{ b2br_hostname }}"
+      tags: [hostname]
+
+    # =============================================
+    # 3. Users and groups
+    # =============================================
+    - name: Create user42 group
+      ansible.builtin.group:
+        name: user42
+        state: present
+      tags: [users]
+
+    - name: Add user to sudo and user42 groups
+      ansible.builtin.user:
+        name: "{{ b2br_username }}"
+        groups:
+          - sudo
+          - user42
+        append: true
+      tags: [users]
+
+    # =============================================
+    # 4. SSH hardening
+    # =============================================
+    - name: Install openssh-server
+      ansible.builtin.apt:
+        name: openssh-server
+        state: present
+      tags: [ssh]
+
+    - name: Set SSH port
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?Port '
+        line: "Port {{ b2br_ssh_port }}"
+      notify: Restart sshd
+      tags: [ssh]
+
+    - name: Disable SSH root login
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PermitRootLogin'
+        line: "PermitRootLogin no"
+      notify: Restart sshd
+      tags: [ssh]
+
+    - name: Enable sshd service
+      ansible.builtin.systemd:
+        name: ssh
+        enabled: true
+        state: started
+      tags: [ssh]
+
+    # =============================================
+    # 5. UFW firewall
+    # =============================================
+    - name: Install ufw
+      ansible.builtin.apt:
+        name: ufw
+        state: present
+      tags: [ufw]
+
+    - name: UFW - default deny incoming
+      ansible.builtin.command: ufw default deny incoming
+      changed_when: false
+      tags: [ufw]
+
+    - name: UFW - default allow outgoing
+      ansible.builtin.command: ufw default allow outgoing
+      changed_when: false
+      tags: [ufw]
+
+    - name: UFW - allow SSH port
+      ansible.builtin.command: "ufw allow {{ b2br_ssh_port }}"
+      changed_when: false
+      tags: [ufw]
+
+    - name: UFW - enable
+      ansible.builtin.command: ufw --force enable
+      changed_when: false
+      tags: [ufw]
+
+    - name: Enable ufw service
+      ansible.builtin.systemd:
+        name: ufw
+        enabled: true
+        state: started
+      tags: [ufw]
+
+    # =============================================
+    # 6. Password policy
+    # =============================================
+    - name: Install libpam-pwquality
+      ansible.builtin.apt:
+        name: libpam-pwquality
+        state: present
+      tags: [password]
+
+    - name: Set PASS_MAX_DAYS
+      ansible.builtin.lineinfile:
+        path: /etc/login.defs
+        regexp: '^PASS_MAX_DAYS'
+        line: "PASS_MAX_DAYS\t{{ b2br_pass_max_days }}"
+      tags: [password]
+
+    - name: Set PASS_MIN_DAYS
+      ansible.builtin.lineinfile:
+        path: /etc/login.defs
+        regexp: '^PASS_MIN_DAYS'
+        line: "PASS_MIN_DAYS\t{{ b2br_pass_min_days }}"
+      tags: [password]
+
+    - name: Set PASS_WARN_AGE
+      ansible.builtin.lineinfile:
+        path: /etc/login.defs
+        regexp: '^PASS_WARN_AGE'
+        line: "PASS_WARN_AGE\t{{ b2br_pass_warn_age }}"
+      tags: [password]
+
+    - name: Apply password expiry to user
+      ansible.builtin.command: >-
+        chage -M {{ b2br_pass_max_days }}
+        -m {{ b2br_pass_min_days }}
+        -W {{ b2br_pass_warn_age }}
+        {{ b2br_username }}
+      changed_when: true
+      tags: [password]
+
+    - name: Apply password expiry to root
+      ansible.builtin.command: >-
+        chage -M {{ b2br_pass_max_days }}
+        -m {{ b2br_pass_min_days }}
+        -W {{ b2br_pass_warn_age }}
+        root
+      changed_when: true
+      tags: [password]
+
+    - name: Configure pam_pwquality
+      ansible.builtin.lineinfile:
+        path: /etc/pam.d/common-password
+        regexp: 'pam_pwquality\.so'
+        line: "password\trequisite\tpam_pwquality.so retry=3 minlen=10 ucredit=-1 dcredit=-1 lcredit=-1 maxrepeat=3 reject_username difok=7 enforce_for_root"
+      tags: [password]
+
+    # =============================================
+    # 7. sudo configuration
+    # =============================================
+    - name: Install sudo
+      ansible.builtin.apt:
+        name: sudo
+        state: present
+      tags: [sudo]
+
+    - name: Create sudo log directory
+      ansible.builtin.file:
+        path: /var/log/sudo
+        state: directory
+        mode: "0750"
+      tags: [sudo]
+
+    - name: Deploy sudoers config
+      ansible.builtin.copy:
+        content: |
+          Defaults    passwd_tries=3
+          Defaults    badpass_message="{{ b2br_sudo_badpass_message }}"
+          Defaults    logfile="/var/log/sudo/sudo.log"
+          Defaults    log_input
+          Defaults    log_output
+          Defaults    iolog_dir="/var/log/sudo"
+          Defaults    requiretty
+          Defaults    secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin"
+        dest: /etc/sudoers.d/sudo_config
+        mode: "0440"
+        validate: "visudo -cf %s"
+      tags: [sudo]
+
+    # =============================================
+    # 8. AppArmor
+    # =============================================
+    - name: Install AppArmor
+      ansible.builtin.apt:
+        name:
+          - apparmor
+          - apparmor-utils
+        state: present
+      tags: [apparmor]
+
+    - name: Enable AppArmor
+      ansible.builtin.systemd:
+        name: apparmor
+        enabled: true
+        state: started
+      tags: [apparmor]
+
+    # =============================================
+    # 9. monitoring.sh + cron
+    # =============================================
+    - name: Deploy monitoring.sh
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../monitoring.sh"
+        dest: /usr/local/bin/monitoring.sh
+        mode: "0755"
+      tags: [monitoring]
+
+    - name: Set up monitoring cron (every 10 min)
+      ansible.builtin.cron:
+        name: "Born2beRoot monitoring"
+        minute: "*/10"
+        job: "/usr/local/bin/monitoring.sh"
+        user: root
+      tags: [monitoring]
+
+    # =============================================
+    # 10. Cleanup
+    # =============================================
+    - name: Remove unnecessary packages
+      ansible.builtin.apt:
+        autoclean: true
+        autoremove: true
+      tags: [cleanup]
+
+    # =============================================
+    # VERIFY: Run with --tags verify
+    # =============================================
+    - name: "VERIFY: hostname"
+      ansible.builtin.command: hostname
+      register: v_hostname
+      changed_when: false
+      tags: [verify, never]
+
+    - name: "VERIFY: hostname result"
+      ansible.builtin.debug:
+        msg: "hostname={{ v_hostname.stdout }} expected={{ b2br_hostname }} {{ (v_hostname.stdout == b2br_hostname) | ternary('OK','FAIL') }}"
+      tags: [verify, never]
+
+    - name: "VERIFY: user groups"
+      ansible.builtin.command: "groups {{ b2br_username }}"
+      register: v_groups
+      changed_when: false
+      tags: [verify, never]
+
+    - name: "VERIFY: user groups result"
+      ansible.builtin.debug:
+        msg: "{{ v_groups.stdout }} {{ ('sudo' in v_groups.stdout and 'user42' in v_groups.stdout) | ternary('OK','FAIL') }}"
+      tags: [verify, never]
+
+    - name: "VERIFY: SSH port"
+      ansible.builtin.command: grep "^Port" /etc/ssh/sshd_config
+      register: v_ssh_port
+      changed_when: false
+      tags: [verify, never]
+
+    - name: "VERIFY: SSH port result"
+      ansible.builtin.debug:
+        msg: "{{ v_ssh_port.stdout }} {{ (b2br_ssh_port | string in v_ssh_port.stdout) | ternary('OK','FAIL') }}"
+      tags: [verify, never]
+
+    - name: "VERIFY: SSH root login"
+      ansible.builtin.command: grep "^PermitRootLogin" /etc/ssh/sshd_config
+      register: v_ssh_root
+      changed_when: false
+      tags: [verify, never]
+
+    - name: "VERIFY: SSH root login result"
+      ansible.builtin.debug:
+        msg: "{{ v_ssh_root.stdout }} {{ ('no' in v_ssh_root.stdout) | ternary('OK','FAIL') }}"
+      tags: [verify, never]
+
+    - name: "VERIFY: UFW status"
+      ansible.builtin.command: ufw status
+      register: v_ufw
+      changed_when: false
+      tags: [verify, never]
+
+    - name: "VERIFY: UFW result"
+      ansible.builtin.debug:
+        msg: "{{ v_ufw.stdout_lines[0] }} {{ ('active' in v_ufw.stdout) | ternary('OK','FAIL') }}"
+      tags: [verify, never]
+
+    - name: "VERIFY: password policy"
+      ansible.builtin.command: "chage -l {{ b2br_username }}"
+      register: v_chage
+      changed_when: false
+      tags: [verify, never]
+
+    - name: "VERIFY: password policy result"
+      ansible.builtin.debug:
+        msg: "{{ v_chage.stdout_lines }}"
+      tags: [verify, never]
+
+    - name: "VERIFY: sudoers config"
+      ansible.builtin.command: visudo -cf /etc/sudoers.d/sudo_config
+      register: v_sudoers
+      changed_when: false
+      tags: [verify, never]
+
+    - name: "VERIFY: sudoers result"
+      ansible.builtin.debug:
+        msg: "{{ v_sudoers.stdout }} {{ ('parsed OK' in v_sudoers.stdout) | ternary('OK','FAIL') }}"
+      tags: [verify, never]
+
+    - name: "VERIFY: AppArmor"
+      ansible.builtin.command: aa-status
+      register: v_aa
+      changed_when: false
+      tags: [verify, never]
+
+    - name: "VERIFY: AppArmor result"
+      ansible.builtin.debug:
+        msg: "profiles={{ v_aa.stdout_lines[0] }} OK"
+      tags: [verify, never]
+
+    - name: "VERIFY: monitoring.sh"
+      ansible.builtin.stat:
+        path: /usr/local/bin/monitoring.sh
+      register: v_mon
+      tags: [verify, never]
+
+    - name: "VERIFY: monitoring.sh result"
+      ansible.builtin.debug:
+        msg: "monitoring.sh exists={{ v_mon.stat.exists }} executable={{ v_mon.stat.executable | default(false) }} {{ (v_mon.stat.exists and v_mon.stat.executable | default(false)) | ternary('OK','FAIL') }}"
+      tags: [verify, never]
+
+    - name: "VERIFY: cron job"
+      ansible.builtin.command: crontab -l
+      register: v_cron
+      changed_when: false
+      tags: [verify, never]
+
+    - name: "VERIFY: cron result"
+      ansible.builtin.debug:
+        msg: "{{ ('monitoring.sh' in v_cron.stdout) | ternary('OK','FAIL') }}"
+      tags: [verify, never]
+
+  handlers:
+    - name: Restart sshd
+      ansible.builtin.systemd:
+        name: ssh
+        state: restarted

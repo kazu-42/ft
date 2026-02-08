@@ -17,11 +17,11 @@
 # include <unistd.h>
 
 int	ft_printf(const char *format, ...);
-int	ft_print_char(int c);
-int	ft_print_str(char *str);
-int	ft_print_ptr(unsigned long long ptr);
-int	ft_print_nbr(int n);
-int	ft_print_unsigned(unsigned int n);
-int	ft_print_hex(unsigned int n, int uppercase);
+int	print_char(int c);
+int	print_str(char *str);
+int	print_ptr(unsigned long long ptr);
+int	print_nbr(int n);
+int	print_unsigned(unsigned int n);
+int	print_hex(unsigned int n, int uppercase);
 
 #endif

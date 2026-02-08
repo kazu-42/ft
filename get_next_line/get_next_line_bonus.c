@@ -12,7 +12,13 @@
 
 #include "get_next_line_bonus.h"
 
-static char	*ft_read_to_stash(int fd, char *stash)
+/**
+ * @brief Read from fd into stash until newline or EOF.
+ * @param fd The file descriptor to read from.
+ * @param stash The current accumulated buffer.
+ * @return Updated stash, or NULL on error.
+ */
+static char	*read_to_stash(int fd, char *stash)
 {
 	char	*buf;
 	int		bytes_read;
@@ -31,13 +37,18 @@ static char	*ft_read_to_stash(int fd, char *stash)
 			return (NULL);
 		}
 		buf[bytes_read] = '\0';
-		stash = ft_strjoin(stash, buf);
+		stash = strjoin(stash, buf);
 	}
 	free(buf);
 	return (stash);
 }
 
-static char	*ft_init_stash(char *stash)
+/**
+ * @brief Initialise stash to an empty string if NULL.
+ * @param stash The current stash pointer.
+ * @return The initialised stash, or NULL on malloc failure.
+ */
+static char	*init_stash(char *stash)
 {
 	if (!stash)
 	{
@@ -49,6 +60,11 @@ static char	*ft_init_stash(char *stash)
 	return (stash);
 }
 
+/**
+ * @brief Return the next line from fd (multi-fd version).
+ * @param fd The file descriptor to read from.
+ * @return The next line, or NULL on EOF / error.
+ */
 char	*get_next_line(int fd)
 {
 	static char	*stash[MAX_FD];
@@ -56,10 +72,10 @@ char	*get_next_line(int fd)
 
 	if (fd < 0 || fd >= MAX_FD || BUFFER_SIZE <= 0)
 		return (NULL);
-	stash[fd] = ft_init_stash(stash[fd]);
+	stash[fd] = init_stash(stash[fd]);
 	if (!stash[fd])
 		return (NULL);
-	stash[fd] = ft_read_to_stash(fd, stash[fd]);
+	stash[fd] = read_to_stash(fd, stash[fd]);
 	if (!stash[fd])
 		return (NULL);
 	if (stash[fd][0] == '\0')
@@ -68,7 +84,7 @@ char	*get_next_line(int fd)
 		stash[fd] = NULL;
 		return (NULL);
 	}
-	line = ft_get_line(stash[fd]);
-	stash[fd] = ft_trim_stash(stash[fd]);
+	line = get_line(stash[fd]);
+	stash[fd] = trim_stash(stash[fd]);
 	return (line);
 }

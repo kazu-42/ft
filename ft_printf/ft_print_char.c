@@ -12,7 +12,12 @@
 
 #include "ft_printf.h"
 
-int	ft_print_char(int c)
+/**
+ * @brief Write a single character to stdout.
+ * @param c The character to print.
+ * @return 1 on success, -1 on write error.
+ */
+int	print_char(int c)
 {
 	unsigned char	ch;
 

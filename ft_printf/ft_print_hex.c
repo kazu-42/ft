@@ -12,7 +12,12 @@
 
 #include "ft_printf.h"
 
-static int	ft_hexlen(unsigned int n)
+/**
+ * @brief Count the number of hex digits of an unsigned int.
+ * @param n The value to measure.
+ * @return The number of hexadecimal digits.
+ */
+static int	hexlen(unsigned int n)
 {
 	int	len;
 
@@ -27,7 +32,13 @@ static int	ft_hexlen(unsigned int n)
 	return (len);
 }
 
-static int	ft_put_hex(unsigned int n, int uppercase)
+/**
+ * @brief Recursively print an unsigned int in hexadecimal.
+ * @param n The value to print.
+ * @param uppercase If nonzero, use uppercase hex digits.
+ * @return 0 on success, -1 on write error.
+ */
+static int	put_hex(unsigned int n, int uppercase)
 {
 	char	*hex;
 
@@ -37,7 +48,7 @@ static int	ft_put_hex(unsigned int n, int uppercase)
 		hex = "0123456789abcdef";
 	if (n >= 16)
 	{
-		if (ft_put_hex(n / 16, uppercase) == -1)
+		if (put_hex(n / 16, uppercase) == -1)
 			return (-1);
 	}
 	if (write(1, &hex[n % 16], 1) == -1)
@@ -45,9 +56,15 @@ static int	ft_put_hex(unsigned int n, int uppercase)
 	return (0);
 }
 
-int	ft_print_hex(unsigned int n, int uppercase)
+/**
+ * @brief Print an unsigned int in hex and return char count.
+ * @param n The value to print.
+ * @param uppercase If nonzero, use uppercase hex digits.
+ * @return Number of characters printed, or -1 on error.
+ */
+int	print_hex(unsigned int n, int uppercase)
 {
-	if (ft_put_hex(n, uppercase) == -1)
+	if (put_hex(n, uppercase) == -1)
 		return (-1);
-	return (ft_hexlen(n));
+	return (hexlen(n));
 }

@@ -12,6 +12,11 @@
 
 #include "ft_printf.h"
 
+/**
+ * @brief Compute the length of a null-terminated string.
+ * @param str The string to measure.
+ * @return The number of characters before the null byte.
+ */
 static int	ft_strlen(char *str)
 {
 	int	len;
@@ -22,7 +27,12 @@ static int	ft_strlen(char *str)
 	return (len);
 }
 
-int	ft_print_str(char *str)
+/**
+ * @brief Write a string to stdout; prints "(null)" if NULL.
+ * @param str The string to print.
+ * @return Number of characters printed, or -1 on error.
+ */
+int	print_str(char *str)
 {
 	int	len;
 
